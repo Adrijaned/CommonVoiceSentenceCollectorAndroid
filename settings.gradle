@@ -1,0 +1,3 @@
+include ':app'
+include ':Swipecards:library'
+rootProject.name='Common Voice Sentence Collector'
