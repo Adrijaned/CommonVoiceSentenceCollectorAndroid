@@ -33,6 +33,7 @@ public class KintoClient {
           try {
             connection = (HttpURLConnection) url.openConnection();
             connection.addRequestProperty("Authorization", auth.trim());
+            Log.d("NET", "Starting fetching sentences");
             if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
               final BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
               StringBuilder sb = new StringBuilder();
@@ -42,6 +43,7 @@ public class KintoClient {
                 sb.append("\n");
               }
               reader.close();
+              Log.d("NET", "Fetched sentences");
               try {
                 final JSONArray _sentences = new JSONObject(sb.toString()).getJSONArray("data");
                 final ArrayList<JSONObject> sentences = new ArrayList<>();
@@ -138,8 +140,8 @@ public class KintoClient {
         try {
           String payload =
               "[{\"op\":\"add\",\"path\":\"/data/" + (accepted ? "" : "in") + "valid/0\",\"value\":\"" + username + "\"}," +
-              "{\"op\":\"add\",\"path\":\"/data/Sentence_Meta_UserVote_" + username + "\",\"value\":" + accepted.toString() + "}," +
-              "{\"op\":\"add\",\"path\":\"/data/Sentence_Meta_UserVoteDate_" + username + "\",\"value\":" + System.currentTimeMillis() + "}" +
+              "{\"op\":\"add\",\"path\":\"/data/Sentences_Meta_UserVote_" + username + "\",\"value\":" + accepted.toString() + "}," +
+              "{\"op\":\"add\",\"path\":\"/data/Sentences_Meta_UserVoteDate_" + username + "\",\"value\":" + System.currentTimeMillis() + "}" +
               (testIfApprovalIsRequiredForSentence(id, lang, accepted) ?
               ",{\"op\":\"add\",\"path\":\"/data/approved\",\"value\":" + accepted.toString() + "}," +
               "{\"op\":\"add\",\"path\":\"/data/approvalDate\",\"value\":" + System.currentTimeMillis() + "}": "") +
