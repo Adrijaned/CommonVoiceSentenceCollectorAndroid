@@ -96,14 +96,54 @@ public class KintoClient {
     }).start();
   }
 
+  // We test for that here because some things may have changed since fetching the sentences initially
+  public static boolean testIfApprovalIsRequiredForSentence(final String id, final String lang, final boolean vote) {
+    URL url;
+    HttpURLConnection connection = null;
+    try {
+      url = new URL("https://kinto.mozvoice.org/v1/buckets/App/collections/Sentences_Meta_" + lang + "/records/" + id);
+      connection = (HttpURLConnection) url.openConnection();
+      if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+          sb.append(line);
+          sb.append("\n");
+        }
+        reader.close();
+        try {
+          final JSONObject sentence = new JSONObject(sb.toString()).getJSONObject("data");
+          if (sentence.has("approved")) return false; // I'm sorry but your vote doesn't matter anymore
+          if (vote && sentence.getJSONArray("valid").length() > 0) return true; // Your vote brings over APPROVAL_MIN_VALID_VOTES
+          if (!vote && sentence.getJSONArray("invalid").length() > 0) return true; // There is no way previous could be valid anymore
+        } catch (JSONException e) {
+          e.printStackTrace();
+        }
+      }
+    } catch (MalformedURLException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      connection.disconnect();
+    }
+    return false;
+  }
+
   public static void updateSentence(final String id, final String username, final String auth, final String lang, final Boolean accepted) {
     new Thread(new Runnable() {
       @Override
       public void run() {
         try {
-          String payload = "[{\"op\":\"add\",\"path\":\"/data/" + (accepted ? "" : "in") + "valid/0\",\"value\":\"" + username + "\"}," +
+          String payload =
+              "[{\"op\":\"add\",\"path\":\"/data/" + (accepted ? "" : "in") + "valid/0\",\"value\":\"" + username + "\"}," +
               "{\"op\":\"add\",\"path\":\"/data/Sentence_Meta_UserVote_" + username + "\",\"value\":" + accepted.toString() + "}," +
-              "{\"op\":\"add\",\"path\":\"/data/Sentence_Meta_UserVoteDate_" + username + "\",\"value\":" + System.currentTimeMillis() + "}]\r\n";
+              "{\"op\":\"add\",\"path\":\"/data/Sentence_Meta_UserVoteDate_" + username + "\",\"value\":" + System.currentTimeMillis() + "}" +
+              (testIfApprovalIsRequiredForSentence(id, lang, accepted) ?
+              ",{\"op\":\"add\",\"path\":\"/data/approved\",\"value\":" + accepted.toString() + "}," +
+              "{\"op\":\"add\",\"path\":\"/data/approvalDate\",\"value\":" + System.currentTimeMillis() + "}": "") +
+              "]\r\n";
           Socket socket = SSLSocketFactory.getDefault().createSocket("kinto.mozvoice.org", 443);
           final PrintWriter writer = new PrintWriter(socket.getOutputStream());
           writer.print("PATCH /v1/buckets/App/collections/Sentences_Meta_" + lang + "/records/" + id);
